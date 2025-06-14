@@ -1,0 +1,21 @@
+{
+  "name": "devtrends",
+  "version": "1.0.0",
+  "description": "Developer dashboard to track trending repositories and tech news.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run start --prefix client\"",
+    "install-all": "npm install --prefix client && npm install --prefix server"
+  },
+  "keywords": [
+    "devtrends",
+    "trending",
+    "github",
+    "hackernews"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
