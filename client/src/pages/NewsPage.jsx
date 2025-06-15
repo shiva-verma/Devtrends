@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { fetchHackerNews } from '../services/api';
+import { fetchDevTo } from '../services/api';
 import NewsCard from '../components/NewsCard';
 
 const NewsPage = () => {
-  const [posts, setPosts] = useState([]);
+  const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PER_PAGE = 10;
+  const MAX_PAGE = 10; // Arbitrary max for numbered links, Dev.to API doesn't give total
 
   const loadPosts = async (page) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchHackerNews(page);
-      setPosts(data.posts);
-      setTotalPages(data.totalPages);
-      setCurrentPage(data.currentPage);
+      const data = await fetchDevTo(page, PER_PAGE);
+      if (Array.isArray(data)) {
+        setArticles(data);
+      } else {
+        throw new Error("Invalid data format received");
+      }
     } catch (err) {
-      setError('Failed to fetch Hacker News posts. Please try again later.');
+      setError('Failed to fetch Dev.to posts. Please try again later.');
       console.error('Error loading posts:', err);
     } finally {
       setLoading(false);
@@ -29,17 +33,38 @@ const NewsPage = () => {
     loadPosts(currentPage);
   }, [currentPage]);
 
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+  const handlePageChange = (page) => {
+    if (page < 1 || page > MAX_PAGE) return;
+    setCurrentPage(page);
     window.scrollTo(0, 0);
+  };
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    for (let i = 1; i <= MAX_PAGE; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+            currentPage === i
+              ? 'z-10 bg-blue-500 border-blue-500 text-white'
+              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pages;
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Hacker News</h1>
-          <p className="text-lg text-gray-600">Latest trending posts from the developer community</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dev.to Articles</h1>
+          <p className="text-lg text-gray-600">Latest trending articles from the developer community</p>
         </div>
 
         {loading && (
@@ -52,7 +77,7 @@ const NewsPage = () => {
           <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -66,50 +91,60 @@ const NewsPage = () => {
         {!loading && !error && (
           <>
             <div className="grid gap-6">
-              {posts.map((post) => (
-                <NewsCard key={post.id} post={post} />
+              {articles.map((article) => (
+                <NewsCard
+                  key={article.id}
+                  post={{ 
+                    title: article.title, 
+                    description: article.description,
+                    url: article.url,
+                    img_url: article.social_image,
+                    published: article.published_at,
+                    reading_time: article.reading_time_minutes
+                  }}
+                />
               ))}
             </div>
 
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center">
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 0}
-                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                      currentPage === 0
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Previous</span>
-                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+            {/* Numbered Pagination */}
+            <div className="mt-10 flex justify-center">
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {/* Prev */}
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                    currentPage === 1
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
 
-                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                    Page {currentPage + 1} of {totalPages}
-                  </span>
+                {/* Page Numbers */}
+                {renderPageNumbers()}
 
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages - 1}
-                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                      currentPage === totalPages - 1
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Next</span>
-                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </nav>
-              </div>
-            )}
+                {/* Next */}
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === MAX_PAGE || articles.length < PER_PAGE}
+                  className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                    currentPage === MAX_PAGE || articles.length < PER_PAGE
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
           </>
         )}
       </div>
@@ -117,4 +152,4 @@ const NewsPage = () => {
   );
 };
 
-export default NewsPage; 
+export default NewsPage;
